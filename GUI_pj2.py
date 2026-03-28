@@ -165,7 +165,7 @@ with tab2:
     - Giá (25%)
     - Vị trí (25%)
     
-    **✅ Khuyến nghị: Hybrid**
+    **Khuyến nghị: Hybrid**
     """)
 
 # ==================== PREDICTION ====================
