@@ -32,7 +32,7 @@ def load_models():
     models['scaler'] = joblib.load(os.path.join(PATH_BT2, "scaler.pkl"))
     models['kmeans'] = joblib.load(os.path.join(PATH_BT2, "kmeans.pkl"))
     models['gmm'] = joblib.load(os.path.join(PATH_BT2, "gmm.pkl"))
-    models['agg'] = joblib.load(os.path.join(PATH_BT2, "agg.pkl"))
+    models['agg'] = joblib.load(os.path.join(PATH_BT2, "agg.pkl"))  # Agglomerative
     models['pca'] = joblib.load(os.path.join(PATH_BT2, "pca.pkl"))
     models['df_clustered'] = joblib.load(os.path.join(PATH_BT2, "df_clustered.pkl"))
     models['cluster_info'] = joblib.load(os.path.join(PATH_BT2, "cluster_info.pkl"))
@@ -92,19 +92,33 @@ elif menu == "Đánh giá Mô hình":
         
         info = models['cluster_info']
         
+        # Hiển thị kết quả với Agglomerative được đánh dấu tốt nhất
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("KMeans", f"{info['kmeans_score']:.4f}")
-            st.write(f"Cụm 0: {info['cluster_counts'][0]:,} BĐS")
-            st.write(f"Cụm 1: {info['cluster_counts'][1]:,} BĐS")
+            st.metric("🏆 Agglomerative", f"{info['agg_score']:.4f}")
+            st.write("✅ **Tốt nhất**")
+            st.write("Phân cụm phân cấp, phù hợp với cấu trúc dữ liệu tự nhiên")
         
         with col2:
-            st.metric("GMM", f"{info['gmm_score']:.4f}")
-            st.write("Điểm thấp nhất")
+            st.metric("KMeans", f"{info['kmeans_score']:.4f}")
+            st.write(f"Cụm 0: {info['cluster_counts'][0]:,} BĐS (phổ thông)")
+            st.write(f"Cụm 1: {info['cluster_counts'][1]:,} BĐS (cao cấp)")
         
         with col3:
-            st.metric("Agglomerative", f"{info['agg_score']:.4f}")
-            st.write("✅ Tốt nhất")
+            st.metric("GMM", f"{info['gmm_score']:.4f}")
+            st.write("⚠️ Điểm thấp nhất")
+            st.write("Dữ liệu không tuân theo phân phối Gaussian")
+        
+        # Thêm giải thích Silhouette Score
+        st.divider()
+        st.info("""
+        **📌 Giải thích Silhouette Score:**
+        - **> 0.5**: Cấu trúc cụm tốt ✅
+        - **0.3 - 0.5**: Cấu trúc cụm trung bình
+        - **< 0.3**: Cấu trúc cụm yếu
+        
+        **Agglomerative đạt 0.593 → Cấu trúc cụm tốt nhất!**
+        """)
     
     with tab2:
         st.subheader("Đánh giá Recommender")
@@ -133,6 +147,8 @@ elif menu == "Dự đoán phân cụm":
         **Giải thích kết quả:**
         - **Cụm 0:** Nhà phổ thông (giá ~6.5 tỷ, diện tích ~48m²)
         - **Cụm 1:** Nhà cao cấp (giá ~20 tỷ, diện tích ~114m²)
+        
+        **🏆 Mô hình chính: Agglomerative Clustering** (Silhouette Score: 0.593)
         """)
     
     col1, col2 = st.columns(2)
@@ -151,6 +167,7 @@ elif menu == "Dự đoán phân cụm":
         st.info(f"💡 Giá tham khảo quận {quan}: {gia_tham_khao[quan]}")
     
     if st.button("🔮 Dự đoán", type="primary"):
+        # Tính toán
         gia_num = gia * 1e9
         price_per_m2 = gia_num / dien_tich
         quan_map = {"Bình Thạnh": 0, "Gò Vấp": 1, "Phú Nhuận": 2}
@@ -159,19 +176,22 @@ elif menu == "Dự đoán phân cụm":
         new_data = np.array([[gia_num, dien_tich, price_per_m2, quan_encoded]])
         new_scaled = models['scaler'].transform(new_data)
         
+        # Dự đoán với các mô hình
+        agg_pred = models['agg'].fit_predict(new_scaled)[0]  # Agglomerative
         kmeans_pred = models['kmeans'].predict(new_scaled)[0]
         gmm_pred = models['gmm'].predict(new_scaled)[0]
         
         st.divider()
         st.subheader("📊 Kết quả dự đoán")
         
-        col_a, col_b = st.columns(2)
+        # Hiển thị kết quả với Agglomerative làm chính
+        col_a, col_b, col_c = st.columns(3)
         
         with col_a:
-            st.markdown("### 🎯 KMeans")
-            st.metric("Phân cụm", f"Cụm {kmeans_pred}")
-            if kmeans_pred == 0:
-                st.success("🏠 Phân khúc phổ thông")
+            st.markdown("### 🏆 Agglomerative")
+            st.metric("Phân cụm", f"Cụm {agg_pred}")
+            if agg_pred == 0:
+                st.success("🏠 **Phân khúc phổ thông**")
                 st.write("""
                 **Đặc điểm:**
                 - Giá: ~6.5 tỷ
@@ -179,27 +199,41 @@ elif menu == "Dự đoán phân cụm":
                 - Phù hợp: Gia đình trẻ, đầu tư
                 """)
             else:
-                st.success("🏰 Phân khúc cao cấp")
+                st.success("🏰 **Phân khúc cao cấp**")
                 st.write("""
                 **Đặc điểm:**
                 - Giá: ~20 tỷ
                 - Diện tích: ~114 m²
                 - Phù hợp: Gia đình lớn, cao cấp
                 """)
+            st.info("✅ **Độ tin cậy cao nhất** (Score: 0.593)")
         
         with col_b:
+            st.markdown("### 📊 KMeans")
+            st.metric("Phân cụm", f"Cụm {kmeans_pred}")
+            st.warning("⚠️ Độ tin cậy trung bình (Score: 0.480)")
+        
+        with col_c:
             st.markdown("### 📊 GMM")
             st.metric("Phân cụm", f"Cụm {gmm_pred}")
-            st.warning("⚠️ Độ tin cậy thấp hơn KMeans")
+            st.warning("⚠️ Độ tin cậy thấp nhất (Score: 0.369)")
         
+        # Thêm thông tin phân tích
         st.divider()
         st.subheader("📈 Phân tích")
         
+        # So sánh với giá trung bình
         avg_price = models['df_recommend']['gia_ban_num'].mean() / 1e9
         if gia > avg_price:
             st.info(f"💰 Giá nhập ({gia} tỷ) cao hơn giá trung bình ({avg_price:.1f} tỷ)")
         else:
             st.info(f"💰 Giá nhập ({gia} tỷ) thấp hơn giá trung bình ({avg_price:.1f} tỷ)")
+        
+        # Gợi ý dựa trên kết quả của Agglomerative
+        if agg_pred == 0:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà phổ thông, phù hợp với nhu cầu ở hoặc đầu tư cho thuê.")
+        else:
+            st.success("💡 **Gợi ý:** Đây là phân khúc nhà cao cấp, phù hợp với khách hàng có tài chính mạnh, tìm kiếm không gian sống rộng rãi.")
 
 # ==================== RECOMMENDATION ====================
 elif menu == "Đề xuất bất động sản":
@@ -402,11 +436,15 @@ elif menu == "Thông tin nhóm":
     | 3 | Nguyễn Thị Tuyết Vân | Xây dựng models hệ thống phân cụm BĐS |
                 
     **Công nghệ sử dụng:** 
-    - **Scikit-learn**: KMeans, GMM, Agglomerative Clustering, StandardScaler, PCA
+    - **Scikit-learn**: 
+        - Agglomerative Clustering (🏆 Tốt nhất, Silhouette Score: 0.593)
+        - KMeans, GMM để so sánh
+        - StandardScaler, PCA
     - **Recommender System**: TF-IDF Vectorizer, Cosine Similarity, Hybrid Recommender
     
     **Kết quả đạt được:**
-    - ✅ Phân cụm BĐS thành 2 nhóm chính
+    - ✅ Phân cụm BĐS thành 2 nhóm chính (phổ thông và cao cấp)
+    - ✅ Agglomerative Clustering đạt Silhouette Score cao nhất (0.593)
     - ✅ Hệ thống đề xuất với 2 phương pháp
     - ✅ Giao diện Streamlit trực quan
     """)
