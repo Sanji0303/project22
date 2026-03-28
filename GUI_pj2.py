@@ -205,7 +205,7 @@ elif menu == "Đề xuất bất động sản":
     st.title("Đề xuất bất động sản")
     
     df = models['df_recommend']
-    df_display = df.head(100).copy()
+    df_display = df.head(5000).copy()
     df_display['display'] = df_display.apply(lambda x: f"{str(x['tieu_de'])[:45]}... - {x['gia_ban']}", axis=1)
     
     selected_idx = st.selectbox("Chọn bất động sản:", range(len(df_display)), 
